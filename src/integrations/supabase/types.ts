@@ -451,15 +451,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
-      is_admin: { Args: never; Returns: boolean }
-      my_stakeholder_id: { Args: never; Returns: string }
       record_sale: {
         Args: {
           p_amount_paid: number
