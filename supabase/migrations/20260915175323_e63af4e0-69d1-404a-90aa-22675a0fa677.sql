@@ -1,0 +1,15 @@
+REVOKE ALL ON FUNCTION public.has_role(uuid, public.app_role) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.has_role(uuid, public.app_role) TO authenticated;
+REVOKE ALL ON FUNCTION public.is_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+REVOKE ALL ON FUNCTION public.my_stakeholder_id() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.my_stakeholder_id() TO authenticated;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.apply_inventory_txn() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.audit_distribution() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.update_updated_at_column() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.validate_share_total() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.record_sale(DATE,TEXT,public.payment_method,public.payment_status,NUMERIC,TEXT,JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.record_sale(DATE,TEXT,public.payment_method,public.payment_status,NUMERIC,TEXT,JSONB) TO authenticated;
+REVOKE ALL ON FUNCTION public.void_sale(UUID,TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.void_sale(UUID,TEXT) TO authenticated;
