@@ -1,0 +1,13 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState, type FormEvent } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Field, FormError } from "@/components/medina/shared";
+export const Route = createFileRoute("/reset-password")({ ssr: false, head: () => ({ meta: [{ title: "Reset password — Medina Stores" }, { name: "description", content: "Choose a new Medina Stores account password." }, { property: "og:title", content: "Reset password — Medina Stores" }, { property: "og:description", content: "Choose a new secure account password." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }] }), component: ResetPassword });
+function ResetPassword() {
+  const navigate = useNavigate(); const [password, setPassword] = useState(""); const [confirm, setConfirm] = useState(""); const [error, setError] = useState<string | null>(null); const [ready, setReady] = useState(false); const [busy, setBusy] = useState(false);
+  useEffect(() => { const recovery = window.location.hash.includes("type=recovery") || new URLSearchParams(window.location.search).get("type") === "recovery"; supabase.auth.getSession().then(({ data }) => setReady(Boolean(recovery || data.session))); }, []);
+  const submit = async (e: FormEvent) => { e.preventDefault(); if (password !== confirm) return setError("Passwords do not match."); setBusy(true); const { error: authError } = await supabase.auth.updateUser({ password }); setBusy(false); if (authError) setError(authError.message); else await navigate({ to: "/dashboard" }); };
+  return <main className="flex min-h-screen items-center justify-center bg-background px-5"><div className="sheet w-full max-w-md p-6"><p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Medina Stores</p><h1 className="mt-2 text-2xl font-semibold">Choose a new password</h1>{ready ? <form className="mt-6 space-y-4" onSubmit={submit}><Field label="New password"><Input type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} /></Field><Field label="Confirm password"><Input type="password" minLength={8} required value={confirm} onChange={(e) => setConfirm(e.target.value)} /></Field><FormError message={error}/><Button className="w-full" disabled={busy}>{busy ? "Saving…" : "Save new password"}</Button></form> : <div className="mt-5"><FormError message="This reset link is invalid or has expired."/><Button variant="outline" className="mt-4" onClick={() => navigate({ to: "/auth" })}>Return to sign in</Button></div>}</div></main>;
+}
