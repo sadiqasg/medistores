@@ -1,9 +1,11 @@
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Menu, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useSettings } from "@/hooks/useMe";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 type NavItem = { to: string; label: string };
 
@@ -31,15 +33,18 @@ const VIEWER_NAV: NavItem[] = [
 export function AppShell({ children }: { children: ReactNode }) {
   const { data: me } = useMe();
   const { data: settings } = useSettings();
-  const router = useRouter();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
   const nav =
     me?.role === "admin" ? ADMIN_NAV : me?.role === "staff" ? STAFF_NAV : VIEWER_NAV;
 
   const signOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await supabase.auth.signOut();
-    router.navigate({ to: "/auth" });
+    await navigate({ to: "/auth", replace: true });
   };
 
   return (
@@ -58,13 +63,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                   : "Family view"}
             </div>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             className="md:hidden p-1"
             onClick={() => setOpen((v) => !v)}
             aria-label="Toggle navigation"
           >
             <Menu className="h-5 w-5" />
-          </button>
+          </Button>
         </div>
 
         <nav className={cn("px-2 py-2 md:block", open ? "block" : "hidden")}>
@@ -84,12 +91,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
           <div className="mt-3 border-t border-sidebar-border pt-3">
             <div className="px-2 pb-2 text-xs opacity-60 truncate">{me?.user.email}</div>
-            <button
+            <Button
+              variant="ghost"
               onClick={signOut}
-              className="flex w-full items-center gap-2 px-2 py-2 text-sm hover:bg-sidebar-accent"
+              className="flex w-full justify-start px-2 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
               <LogOut className="h-4 w-4" /> Sign out
-            </button>
+            </Button>
           </div>
         </nav>
       </aside>
