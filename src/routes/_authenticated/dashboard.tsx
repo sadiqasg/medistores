@@ -21,7 +21,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 function DashboardPage() {
-  const { role } = useMe();
+  const me = useMe();
+  const role = me.data?.role;
   const period = useMemo(() => buildPeriod("month"), []);
   const sales = useSales(period.from, period.to);
   const expenses = useExpenses(period.from, period.to);
