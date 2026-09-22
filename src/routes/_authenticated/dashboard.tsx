@@ -56,7 +56,11 @@ function DashboardPage() {
 
       <div className="grid gap-px bg-rule sm:grid-cols-2">
         <StatCard label="Inventory value" value={<Money value={stockValue} />} />
-        <StatCard label="Low stock items" value={formatNumber(lowStock)} tone={lowStock ? "warning" : undefined} />
+        {lowStock ? (
+          <StatCard label="Low stock items" value={formatNumber(lowStock)} tone="warning" />
+        ) : (
+          <StatCard label="Low stock items" value={formatNumber(lowStock)} />
+        )}
       </div>
 
       {role !== "family_viewer" ? (
