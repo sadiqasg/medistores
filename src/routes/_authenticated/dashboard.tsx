@@ -41,18 +41,21 @@ function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" subtitle={`This month · ${formatDate(period.from)} – ${formatDate(period.to)}`} />
+      <PageHeader
+        title="Dashboard"
+        description={`${period.label} · ${formatDate(period.from)} – ${formatDate(period.to)}`}
+      />
 
       <div className="grid gap-px bg-rule sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Revenue" value={revenue} />
-        <StatCard label="Cost of goods" value={cogs} />
-        <StatCard label="Gross profit" value={revenue - cogs} tone="positive" />
-        <StatCard label="Net profit" value={revenue - cogs - opex} tone="positive" />
+        <StatCard label="Revenue" value={<Money value={revenue} />} />
+        <StatCard label="Cost of goods" value={<Money value={cogs} />} />
+        <StatCard label="Gross profit" value={<Money value={revenue - cogs} tone="auto" />} tone="positive" />
+        <StatCard label="Net profit" value={<Money value={revenue - cogs - opex} tone="auto" />} tone="positive" />
       </div>
 
       <div className="grid gap-px bg-rule sm:grid-cols-2">
-        <StatCard label="Inventory value" value={stockValue} />
-        <StatCard label="Low stock items" value={lowStock} format="number" />
+        <StatCard label="Inventory value" value={<Money value={stockValue} />} />
+        <StatCard label="Low stock items" value={formatNumber(lowStock)} tone={lowStock ? "warning" : undefined} />
       </div>
 
       {role !== "family_viewer" ? (
