@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { useMe } from "@/hooks/useMe";
-import { useSales, useExpenses, useProducts } from "@/hooks/useMedinaData";
+import { useSales, useExpenses, useProducts, useSaleItems, useDistributions } from "@/hooks/useMedinaData";
 import { PageHeader, StatCard, Sheet, Empty, Money, Delta, Tag } from "@/components/ledger";
 import { PeriodFilter } from "@/components/medina/shared";
 import { buildPeriod, previousPeriod, lastNMonths, monthKey, monthLabel, type Period } from "@/lib/period";
@@ -44,6 +44,10 @@ function DashboardPage() {
   // All sales for the 12-month trend (unfiltered by period)
   const trendSales = useSales();
 
+  // Sale items for top products, distributions for admin feed
+  const saleItems = useSaleItems();
+  const distributions = useDistributions();
+
   const rows = (sales.data ?? []).filter((s: any) => !s.is_voided);
   const revenue = rows.reduce((sum: number, s: any) => sum + Number(s.total_amount ?? 0), 0);
   const cogs = rows.reduce((sum: number, s: any) => sum + Number(s.total_cost ?? 0), 0);
@@ -77,6 +81,26 @@ function DashboardPage() {
         .reduce((sum: number, s: any) => sum + Number(s.total_amount ?? 0), 0),
     }));
   }, [trendSales.data]);
+
+  // Top products by revenue within the selected period
+  const topProducts = useMemo(() => {
+    const validSaleIds = new Set(rows.map((s: any) => s.id));
+    const items = (saleItems.data ?? []).filter((si: any) => validSaleIds.has(si.sale_id));
+    const byProduct = new Map<string, { name: string; units: number; revenue: number }>();
+    for (const si of items) {
+      const name = si.products?.name ?? "Unknown product";
+      const existing = byProduct.get(si.product_id) ?? { name, units: 0, revenue: 0 };
+      existing.units += Number(si.quantity ?? 0);
+      existing.revenue += Number(si.subtotal ?? 0);
+      byProduct.set(si.product_id, existing);
+    }
+    return Array.from(byProduct.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+  }, [saleItems.data, rows]);
+
+  // Recent distributions (admin only, last 5)
+  const recentDistributions = useMemo(() => {
+    return (distributions.data ?? []).slice(0, 5);
+  }, [distributions.data]);
 
   return (
     <div className="space-y-6">
@@ -190,42 +214,116 @@ function DashboardPage() {
       </Sheet>
 
       {role !== "family_viewer" ? (
-        <Sheet title="Recent sales">
-          {rows.length === 0 ? (
-            <Empty>No sales recorded in this period.</Empty>
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Recent sales */}
+          <Sheet title="Recent sales">
+            {rows.length === 0 ? (
+              <Empty>No sales recorded in this period.</Empty>
+            ) : (
+              <table className="ledger">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th className="col-num">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.slice(0, 8).map((s: any) => (
+                    <tr key={s.id} className="transition-colors duration-200 ease-in-out">
+                      <td>{formatDate(s.sale_date)}</td>
+                      <td>{s.customer_name || "—"}</td>
+                      <td>
+                        <Tag
+                          tone={
+                            s.payment_status === "paid"
+                              ? "positive"
+                              : s.payment_status === "partial"
+                                ? "warning"
+                                : "danger"
+                          }
+                        >
+                          {s.payment_status}
+                        </Tag>
+                      </td>
+                      <td className="col-num">
+                        <Money value={Number(s.total_amount ?? 0)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Sheet>
+
+          {/* Top products by revenue */}
+          <Sheet title="Top products">
+            {topProducts.length === 0 ? (
+              <Empty>No product sales in this period.</Empty>
+            ) : (
+              <table className="ledger">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th className="col-num">Units</th>
+                    <th className="col-num">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topProducts.map((p, i) => (
+                    <tr key={i} className="transition-colors duration-200 ease-in-out">
+                      <td>{p.name}</td>
+                      <td className="col-num">{formatNumber(p.units)}</td>
+                      <td className="col-num">
+                        <Money value={p.revenue} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </Sheet>
+        </div>
+      ) : null}
+
+      {/* Admin-only recent distributions */}
+      {role === "admin" ? (
+        <Sheet title="Recent distributions">
+          {recentDistributions.length === 0 ? (
+            <Empty>No profit distributions recorded yet.</Empty>
           ) : (
             <table className="ledger">
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Customer</th>
+                  <th>Stakeholder</th>
                   <th>Status</th>
                   <th className="col-num">Amount</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.slice(0, 8).map((s: any) => (
-                  <tr
-                    key={s.id}
-                    className="transition-colors duration-200 ease-in-out"
-                  >
-                    <td>{formatDate(s.sale_date)}</td>
-                    <td>{s.customer_name || "—"}</td>
+                {recentDistributions.map((d: any) => (
+                  <tr key={d.id} className="transition-colors duration-200 ease-in-out">
+                    <td>{formatDate(d.date)}</td>
+                    <td>{d.ownership_shares?.stakeholder_name ?? "—"}</td>
                     <td>
                       <Tag
                         tone={
-                          s.payment_status === "paid"
+                          d.status === "confirmed"
                             ? "positive"
-                            : s.payment_status === "partial"
-                              ? "warning"
-                              : "danger"
+                            : d.status === "sent"
+                              ? "steel"
+                              : "warning"
                         }
                       >
-                        {s.payment_status}
+                        <span className="transition-opacity duration-200 ease-in-out">
+                          {d.status}
+                        </span>
                       </Tag>
                     </td>
                     <td className="col-num">
-                      <Money value={Number(s.total_amount ?? 0)} />
+                      <Money value={Number(d.amount ?? 0)} tone="auto" />
                     </td>
                   </tr>
                 ))}
