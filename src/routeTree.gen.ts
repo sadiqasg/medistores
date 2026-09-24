@@ -16,6 +16,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
+import { Route as AuthenticatedProfitLossRouteImport } from './routes/_authenticated/profit-loss'
 import { Route as AuthenticatedRebatesRouteImport } from './routes/_authenticated/rebates'
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
 
@@ -53,6 +54,11 @@ const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProfitLossRoute = AuthenticatedProfitLossRouteImport.update({
+  id: '/profit-loss',
+  path: '/profit-loss',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedRebatesRoute = AuthenticatedRebatesRouteImport.update({
   id: '/rebates',
   path: '/rebates',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
+  '/profit-loss': typeof AuthenticatedProfitLossRoute
   '/rebates': typeof AuthenticatedRebatesRoute
   '/sales': typeof AuthenticatedSalesRoute
 }
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/expenses': typeof AuthenticatedExpensesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
+  '/profit-loss': typeof AuthenticatedProfitLossRoute
   '/rebates': typeof AuthenticatedRebatesRoute
   '/sales': typeof AuthenticatedSalesRoute
 }
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
+  '/_authenticated/profit-loss': typeof AuthenticatedProfitLossRoute
   '/_authenticated/rebates': typeof AuthenticatedRebatesRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
 }
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/profit-loss'
     | '/rebates'
     | '/sales'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/expenses'
     | '/inventory'
+    | '/profit-loss'
     | '/rebates'
     | '/sales'
   id:
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/expenses'
     | '/_authenticated/inventory'
+    | '/_authenticated/profit-loss'
     | '/_authenticated/rebates'
     | '/_authenticated/sales'
   fileRoutesById: FileRoutesById
@@ -188,6 +200,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedInventoryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/profit-loss': {
+      id: '/_authenticated/profit-loss'
+      path: '/profit-loss'
+      fullPath: '/profit-loss'
+      preLoaderRoute: typeof AuthenticatedProfitLossRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/rebates': {
       id: '/_authenticated/rebates'
       path: '/rebates'
@@ -209,6 +228,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
+  AuthenticatedProfitLossRoute: typeof AuthenticatedProfitLossRoute
   AuthenticatedRebatesRoute: typeof AuthenticatedRebatesRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
 }
@@ -217,6 +237,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
+  AuthenticatedProfitLossRoute: AuthenticatedProfitLossRoute,
   AuthenticatedRebatesRoute: AuthenticatedRebatesRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
 }
