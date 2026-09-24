@@ -15,6 +15,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/sales", label: "Sales" },
   { to: "/expenses", label: "Expenses" },
   { to: "/profit-loss", label: "Profit & Loss" },
+  { to: "/rebates", label: "Rebates" },
   { to: "/distributions", label: "Distributions" },
   { to: "/settings", label: "Settings" },
 ];

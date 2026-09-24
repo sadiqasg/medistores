@@ -425,6 +425,45 @@ export type Database = {
         }
         Relationships: []
       }
+      rebates: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          rebate_month: string
+          rebate_type: Database["public"]["Enums"]["rebate_type"]
+          reference: string | null
+          status: Database["public"]["Enums"]["rebate_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          rebate_month: string
+          rebate_type?: Database["public"]["Enums"]["rebate_type"]
+          reference?: string | null
+          status?: Database["public"]["Enums"]["rebate_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          rebate_month?: string
+          rebate_type?: Database["public"]["Enums"]["rebate_type"]
+          reference?: string | null
+          status?: Database["public"]["Enums"]["rebate_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -479,6 +518,8 @@ export type Database = {
         | "adjustment"
       payment_method: "cash" | "transfer" | "credit"
       payment_status: "paid" | "partial" | "owing"
+      rebate_status: "pending" | "received"
+      rebate_type: "cash" | "stock_credit" | "discount"
       unit_type: "crate" | "case" | "bottle" | "pack"
     }
     CompositeTypes: {
@@ -618,6 +659,8 @@ export const Constants = {
       ],
       payment_method: ["cash", "transfer", "credit"],
       payment_status: ["paid", "partial", "owing"],
+      rebate_status: ["pending", "received"],
+      rebate_type: ["cash", "stock_credit", "discount"],
       unit_type: ["crate", "case", "bottle", "pack"],
     },
   },
