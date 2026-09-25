@@ -16,7 +16,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/expenses", label: "Expenses" },
   { to: "/profit-loss", label: "Profit & Loss" },
   { to: "/rebates", label: "Rebates" },
-  { to: "/distributions", label: "Distributions" },
+  { to: "/family/ledger", label: "Family Ledger" },
   { to: "/settings", label: "Settings" },
 ];
 

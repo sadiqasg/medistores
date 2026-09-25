@@ -19,6 +19,7 @@ import { Route as AuthenticatedInventoryRouteImport } from './routes/_authentica
 import { Route as AuthenticatedProfitLossRouteImport } from './routes/_authenticated/profit-loss'
 import { Route as AuthenticatedRebatesRouteImport } from './routes/_authenticated/rebates'
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
+import { Route as AuthenticatedFamilyLedgerRouteImport } from './routes/_authenticated/family/ledger'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -69,6 +70,12 @@ const AuthenticatedSalesRoute = AuthenticatedSalesRouteImport.update({
   path: '/sales',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFamilyLedgerRoute =
+  AuthenticatedFamilyLedgerRouteImport.update({
+    id: '/family/ledger',
+    path: '/family/ledger',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/profit-loss': typeof AuthenticatedProfitLossRoute
   '/rebates': typeof AuthenticatedRebatesRoute
   '/sales': typeof AuthenticatedSalesRoute
+  '/family/ledger': typeof AuthenticatedFamilyLedgerRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,6 +99,7 @@ export interface FileRoutesByTo {
   '/profit-loss': typeof AuthenticatedProfitLossRoute
   '/rebates': typeof AuthenticatedRebatesRoute
   '/sales': typeof AuthenticatedSalesRoute
+  '/family/ledger': typeof AuthenticatedFamilyLedgerRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -104,6 +113,7 @@ export interface FileRoutesById {
   '/_authenticated/profit-loss': typeof AuthenticatedProfitLossRoute
   '/_authenticated/rebates': typeof AuthenticatedRebatesRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
+  '/_authenticated/family/ledger': typeof AuthenticatedFamilyLedgerRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/profit-loss'
     | '/rebates'
     | '/sales'
+    | '/family/ledger'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/profit-loss'
     | '/rebates'
     | '/sales'
+    | '/family/ledger'
   id:
     | '__root__'
     | '/'
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profit-loss'
     | '/_authenticated/rebates'
     | '/_authenticated/sales'
+    | '/_authenticated/family/ledger'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSalesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/family/ledger': {
+      id: '/_authenticated/family/ledger'
+      path: '/family/ledger'
+      fullPath: '/family/ledger'
+      preLoaderRoute: typeof AuthenticatedFamilyLedgerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -231,6 +251,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProfitLossRoute: typeof AuthenticatedProfitLossRoute
   AuthenticatedRebatesRoute: typeof AuthenticatedRebatesRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
+  AuthenticatedFamilyLedgerRoute: typeof AuthenticatedFamilyLedgerRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -240,6 +261,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProfitLossRoute: AuthenticatedProfitLossRoute,
   AuthenticatedRebatesRoute: AuthenticatedRebatesRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
+  AuthenticatedFamilyLedgerRoute: AuthenticatedFamilyLedgerRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
