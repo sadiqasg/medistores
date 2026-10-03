@@ -13,6 +13,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/inventory", label: "Inventory" },
   { to: "/sales", label: "Sales" },
+  { to: "/customers", label: "Customers" },
   { to: "/expenses", label: "Expenses" },
   { to: "/profit-loss", label: "Profit & Loss" },
   { to: "/rebates", label: "Rebates" },
@@ -25,6 +26,7 @@ const STAFF_NAV: NavItem[] = [
   { to: "/dashboard", label: "Dashboard" },
   { to: "/inventory", label: "Inventory" },
   { to: "/sales", label: "Sales" },
+  { to: "/customers", label: "Customers" },
 ];
 
 const VIEWER_NAV: NavItem[] = [

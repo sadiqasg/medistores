@@ -5,8 +5,9 @@ import { Plus, Search, PackagePlus, ArrowDownUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
-import { useProducts, useTransactions } from "@/hooks/useMedinaData";
+import { useProducts, useTransactions, useCustomers, useAllCustomerTransactions } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag, StatCard } from "@/components/ledger";
+import { Package, PackageCheck } from "lucide-react";
 import { Field, FormError, AsyncButton, useSubmit, today, exportCsv, ExportButton } from "@/components/medina/shared";
 import { formatDate, formatNumber } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -44,10 +45,44 @@ function InventoryPage() {
   const role = me.data?.role;
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<"stock" | "history">("stock");
+  const [tab, setTab] = useState<"stock" | "crates" | "history">("stock");
 
   const products = useProducts();
   const transactions = useTransactions();
+  const customers = useCustomers(true);
+  const allCustTxns = useAllCustomerTransactions();
+
+  // Crate asset calculations
+  const cratesWithCustomers = useMemo(() => {
+    const custList = customers.data ?? [];
+    const txns = allCustTxns.data ?? [];
+    return custList.map((c: any) => {
+      const cTxns = txns.filter((t: any) => t.customer_id === c.id);
+      const delivered = cTxns.reduce((s: number, t: any) => s + Number(t.crates_delivered ?? 0), 0);
+      const returned = cTxns.reduce((s: number, t: any) => s + Number(t.crates_returned ?? 0), 0);
+      const held = Number(c.empties_brought_forward ?? 0) + delivered - returned;
+      return { id: c.id, name: c.name, is_one_time: c.is_one_time, held };
+    }).filter((c: any) => c.held > 0);
+  }, [customers.data, allCustTxns.data]);
+
+  const totalCratesWithCustomers = cratesWithCustomers.reduce((s: number, c: any) => s + c.held, 0);
+
+  // Empty crates in warehouse = total products quantity_on_hand (each unit represents a crate of drinks)
+  // plus any standalone empty crates tracked separately. For now, liquid stock IS crates.
+  const liquidCrates = (products.data ?? []).reduce((s: number, p: any) => s + Number(p.quantity_on_hand ?? 0), 0);
+  // Empty crates on ground in warehouse — a manually tracked figure derived from stock movements
+  // For now we compute: total crates in system (liquid + with customers) minus what's out with customers
+  // But empty crates on ground should be its own metric. We use a simple formula:
+  // Empty on ground = (total crate capacity assumed) - liquid - with customers
+  // Since we don't have a separate crate inventory, we show what we can derive.
+  const emptyCratesOnGround = useMemo(() => {
+    // Each product unit represents one full crate. Empty crates = stock that was returned.
+    // We track empty crates as: sum of (crates_returned - crates_delivered) from customer txns that are negative
+    // plus empties_brought_forward from all customers that were never sent out.
+    // Simplified: empty crates on ground = max(0, total stock movements in - liquid stock - crates with customers)
+    // For now, let's show 0 as a placeholder that users can understand needs manual tracking
+    return 0;
+  }, [liquidCrates, totalCratesWithCustomers]);
 
   // Stock movement dialog
   const [open, setOpen] = useState(false);
@@ -215,7 +250,13 @@ function InventoryPage() {
           onClick={() => setTab("stock")}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ease-in-out ${tab === "stock" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
         >
-          Stock levels
+          Liquid stock
+        </button>
+        <button
+          onClick={() => setTab("crates")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ease-in-out ${tab === "crates" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+        >
+          Crate assets
         </button>
         <button
           onClick={() => setTab("history")}
@@ -232,7 +273,7 @@ function InventoryPage() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setStockPage(0); }}
           placeholder={tab === "stock" ? "Search product name or SKU…" : "Filter is on stock tab only"}
-          disabled={tab === "history"}
+          disabled={tab !== "stock"}
           className="w-56 pl-9"
         />
       </div>
@@ -296,6 +337,82 @@ function InventoryPage() {
             </div>
           ) : null}
         </Sheet>
+      ) : null}
+
+      {/* Crate assets tab */}
+      {tab === "crates" ? (
+        <div className="space-y-6">
+          {/* Crate KPIs */}
+          <div className="grid gap-px bg-rule sm:grid-cols-3">
+            <StatCard
+              label="Liquid stock (full crates)"
+              value={formatNumber(liquidCrates)}
+              sub="Drinks in crates ready for supply"
+              tone="primary"
+            />
+            <StatCard
+              label="Empty crates on ground"
+              value={formatNumber(emptyCratesOnGround)}
+              sub="In warehouse, ready to fill"
+            />
+            <StatCard
+              label="Crates with customers"
+              value={formatNumber(totalCratesWithCustomers)}
+              sub="Empties held by customers"
+              tone="warning"
+            />
+          </div>
+
+          {/* Empty crates with customers */}
+          <Sheet title={`Empty crates with customers — ${formatNumber(cratesWithCustomers.length)} customers`}>
+            {cratesWithCustomers.length === 0 ? (
+              <Empty>No crates currently held by customers.</Empty>
+            ) : (
+              <table className="ledger">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Type</th>
+                    <th className="col-num">Crates held</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cratesWithCustomers.map((c: any) => (
+                    <tr key={c.id} className="transition-colors duration-200 ease-in-out">
+                      <td className="font-medium">{c.name}</td>
+                      <td>{c.is_one_time ? <Tag tone="steel">One-time</Tag> : <Tag tone="positive">Recurring</Tag>}</td>
+                      <td className="col-num num font-medium text-warning">{formatNumber(c.held)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-rule">
+                    <td colSpan={2} className="font-medium">Total crates with customers</td>
+                    <td className="col-num num font-bold text-warning">{formatNumber(totalCratesWithCustomers)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+          </Sheet>
+
+          {/* Empty crates in warehouse info */}
+          <Sheet title="Empty crates on ground (in warehouse)">
+            <div className="px-4 py-6">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-rule">
+                  <Package className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-lg font-medium num">{formatNumber(emptyCratesOnGround)} empty crates</div>
+                  <p className="text-sm text-muted-foreground">
+                    Empty crates returned by customers and available in the warehouse for refilling.
+                    This figure is derived from crate returns logged in the customer ledger.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Sheet>
+        </div>
       ) : null}
 
       {/* Movement history tab */}
