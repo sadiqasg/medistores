@@ -8,30 +8,65 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type NavItem = { to: string; label: string };
+type NavGroup = { heading: string; items: NavItem[] };
 
-const ADMIN_NAV: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/inventory", label: "Inventory" },
-  { to: "/sales", label: "Sales" },
-  { to: "/customers", label: "Customers" },
-  { to: "/expenses", label: "Expenses" },
-  { to: "/profit-loss", label: "Profit & Loss" },
-  { to: "/rebates", label: "Rebates" },
-  { to: "/family/ledger", label: "Family Ledger" },
-  { to: "/reports/financials", label: "Financials" },
-  { to: "/settings", label: "Settings" },
+const ADMIN_NAV: NavGroup[] = [
+  {
+    heading: "Overview",
+    items: [{ to: "/dashboard", label: "Dashboard" }],
+  },
+  {
+    heading: "Trade",
+    items: [
+      { to: "/inventory", label: "Inventory" },
+      { to: "/sales", label: "Sales" },
+      { to: "/customers", label: "Customers" },
+    ],
+  },
+  {
+    heading: "Finance",
+    items: [
+      { to: "/expenses", label: "Expenses" },
+      { to: "/profit-loss", label: "Profit & Loss" },
+      { to: "/rebates", label: "Rebates" },
+    ],
+  },
+  {
+    heading: "Family & Reports",
+    items: [
+      { to: "/family/ledger", label: "Family Ledger" },
+      { to: "/reports/financials", label: "Financials" },
+    ],
+  },
+  {
+    heading: "System",
+    items: [{ to: "/settings", label: "Settings" }],
+  },
 ];
 
-const STAFF_NAV: NavItem[] = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/inventory", label: "Inventory" },
-  { to: "/sales", label: "Sales" },
-  { to: "/customers", label: "Customers" },
+const STAFF_NAV: NavGroup[] = [
+  {
+    heading: "Overview",
+    items: [{ to: "/dashboard", label: "Dashboard" }],
+  },
+  {
+    heading: "Trade",
+    items: [
+      { to: "/inventory", label: "Inventory" },
+      { to: "/sales", label: "Sales" },
+      { to: "/customers", label: "Customers" },
+    ],
+  },
 ];
 
-const VIEWER_NAV: NavItem[] = [
-  { to: "/dashboard", label: "Overview" },
-  { to: "/my-payouts", label: "My Payouts" },
+const VIEWER_NAV: NavGroup[] = [
+  {
+    heading: "Family",
+    items: [
+      { to: "/dashboard", label: "Overview" },
+      { to: "/my-payouts", label: "My Payouts" },
+    ],
+  },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -41,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
-  const nav =
+  const navGroups =
     me?.role === "admin" ? ADMIN_NAV : me?.role === "staff" ? STAFF_NAV : VIEWER_NAV;
 
   const signOut = async () => {
@@ -51,21 +86,19 @@ export function AppShell({ children }: { children: ReactNode }) {
     await navigate({ to: "/auth", replace: true });
   };
 
+  const roleLabel =
+    me?.role === "admin" ? "Owner ledger" : me?.role === "staff" ? "Operations" : "Family view";
+
   return (
     <div className="min-h-screen md:flex">
-      <aside className="bg-sidebar text-sidebar-foreground md:w-60 md:shrink-0">
+      {/* Sidebar — sticky on desktop so it stays in place while the page scrolls */}
+      <aside className="bg-sidebar text-sidebar-foreground md:sticky md:top-0 md:h-screen md:w-60 md:shrink-0 md:overflow-y-auto">
         <div className="flex items-center justify-between border-b border-sidebar-border px-4 py-3.5">
           <div>
             <div className="font-serif text-base font-semibold leading-tight">
               {settings?.business_name ?? "Medina Stores"}
             </div>
-            <div className="text-[0.66rem] uppercase tracking-[0.18em] opacity-60">
-              {me?.role === "admin"
-                ? "Owner ledger"
-                : me?.role === "staff"
-                  ? "Operations"
-                  : "Family view"}
-            </div>
+            <div className="text-[0.66rem] uppercase tracking-[0.18em] opacity-60">{roleLabel}</div>
           </div>
           <Button
             variant="ghost"
@@ -79,21 +112,29 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className={cn("px-2 py-2 md:block", open ? "block" : "hidden")}>
-          {nav.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={() => setOpen(false)}
-              className="block px-2 py-2 text-sm hover:bg-sidebar-accent"
-              activeProps={{
-                className:
-                  "block px-2 py-2 text-sm bg-sidebar-accent border-l-2 border-primary font-medium",
-              }}
-            >
-              {item.label}
-            </Link>
+          {navGroups.map((group, gi) => (
+            <div key={group.heading} className={gi > 0 ? "mt-4" : ""}>
+              <div className="px-2 pb-1 pt-1 text-[0.62rem] font-medium uppercase tracking-[0.16em] opacity-40">
+                {group.heading}
+              </div>
+              {group.items.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className="block px-2 py-2 text-sm transition-colors duration-200 ease-in-out hover:bg-sidebar-accent"
+                  activeProps={{
+                    className:
+                      "block px-2 py-2 text-sm bg-sidebar-accent border-l-2 border-primary font-medium",
+                  }}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           ))}
-          <div className="mt-3 border-t border-sidebar-border pt-3">
+
+          <div className="mt-4 border-t border-sidebar-border pt-3">
             <div className="px-2 pb-2 text-xs opacity-60 truncate">{me?.user.email}</div>
             <Button
               variant="ghost"
