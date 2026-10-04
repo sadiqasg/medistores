@@ -20,6 +20,7 @@ import { Route as AuthenticatedInventoryRouteImport } from './routes/_authentica
 import { Route as AuthenticatedProfitLossRouteImport } from './routes/_authenticated/profit-loss'
 import { Route as AuthenticatedRebatesRouteImport } from './routes/_authenticated/rebates'
 import { Route as AuthenticatedSalesRouteImport } from './routes/_authenticated/sales'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedFamilyLedgerRouteImport } from './routes/_authenticated/family/ledger'
 import { Route as AuthenticatedReportsFinancialsRouteImport } from './routes/_authenticated/reports/financials'
 
@@ -77,6 +78,11 @@ const AuthenticatedSalesRoute = AuthenticatedSalesRouteImport.update({
   path: '/sales',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedFamilyLedgerRoute =
   AuthenticatedFamilyLedgerRouteImport.update({
     id: '/family/ledger',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/profit-loss': typeof AuthenticatedProfitLossRoute
   '/rebates': typeof AuthenticatedRebatesRoute
   '/sales': typeof AuthenticatedSalesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/family/ledger': typeof AuthenticatedFamilyLedgerRoute
   '/reports/financials': typeof AuthenticatedReportsFinancialsRoute
 }
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/profit-loss': typeof AuthenticatedProfitLossRoute
   '/rebates': typeof AuthenticatedRebatesRoute
   '/sales': typeof AuthenticatedSalesRoute
+  '/settings': typeof AuthenticatedSettingsRoute
   '/family/ledger': typeof AuthenticatedFamilyLedgerRoute
   '/reports/financials': typeof AuthenticatedReportsFinancialsRoute
 }
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/_authenticated/profit-loss': typeof AuthenticatedProfitLossRoute
   '/_authenticated/rebates': typeof AuthenticatedRebatesRoute
   '/_authenticated/sales': typeof AuthenticatedSalesRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/family/ledger': typeof AuthenticatedFamilyLedgerRoute
   '/_authenticated/reports/financials': typeof AuthenticatedReportsFinancialsRoute
 }
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/profit-loss'
     | '/rebates'
     | '/sales'
+    | '/settings'
     | '/family/ledger'
     | '/reports/financials'
   fileRoutesByTo: FileRoutesByTo
@@ -161,6 +171,7 @@ export interface FileRouteTypes {
     | '/profit-loss'
     | '/rebates'
     | '/sales'
+    | '/settings'
     | '/family/ledger'
     | '/reports/financials'
   id:
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
     | '/_authenticated/profit-loss'
     | '/_authenticated/rebates'
     | '/_authenticated/sales'
+    | '/_authenticated/settings'
     | '/_authenticated/family/ledger'
     | '/_authenticated/reports/financials'
   fileRoutesById: FileRoutesById
@@ -266,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSalesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/family/ledger': {
       id: '/_authenticated/family/ledger'
       path: '/family/ledger'
@@ -291,6 +310,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProfitLossRoute: typeof AuthenticatedProfitLossRoute
   AuthenticatedRebatesRoute: typeof AuthenticatedRebatesRoute
   AuthenticatedSalesRoute: typeof AuthenticatedSalesRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedFamilyLedgerRoute: typeof AuthenticatedFamilyLedgerRoute
   AuthenticatedReportsFinancialsRoute: typeof AuthenticatedReportsFinancialsRoute
 }
@@ -303,6 +323,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProfitLossRoute: AuthenticatedProfitLossRoute,
   AuthenticatedRebatesRoute: AuthenticatedRebatesRoute,
   AuthenticatedSalesRoute: AuthenticatedSalesRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedFamilyLedgerRoute: AuthenticatedFamilyLedgerRoute,
   AuthenticatedReportsFinancialsRoute: AuthenticatedReportsFinancialsRoute,
 }
