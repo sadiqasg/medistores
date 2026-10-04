@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Search, Ban } from "lucide-react";
+import { Plus, Search, Ban, UserPlus, Check, ChevronsUpDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
-import { useSales, useProducts } from "@/hooks/useMedinaData";
+import { useSales, useProducts, useCustomers } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag } from "@/components/ledger";
 import { PeriodFilter, Field, FormError, AsyncButton, useSubmit, today } from "@/components/medina/shared";
 import { buildPeriod, type Period } from "@/lib/period";
@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated/sales")({
@@ -50,11 +53,22 @@ function SalesPage() {
 
   const sales = useSales(period.from, period.to);
   const products = useProducts(true);
+  const customers = useCustomers(true);
 
   // New sale dialog state
   const [open, setOpen] = useState(false);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [customer, setCustomer] = useState("");
+
+  // Customer selection state
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustName, setNewCustName] = useState("");
+  const [newCustPhone, setNewCustPhone] = useState("");
+  const [newCustIsOneTime, setNewCustIsOneTime] = useState(false);
+  const [addCustBusy, setAddCustBusy] = useState(false);
+
   const [saleDate, setSaleDate] = useState(today());
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [paymentStatus, setPaymentStatus] = useState("paid");
@@ -121,8 +135,52 @@ function SalesPage() {
   const removeFromCart = (id: string) => setCart((prev) => prev.filter((ci) => ci.product_id !== id));
 
   const resetForm = () => {
-    setCart([]); setCustomer(""); setSaleDate(today()); setPaymentMethod("cash");
+    setCart([]); setSelectedCustomerId(""); setCustomerSearch("");
+    setShowAddCustomer(false); setNewCustName(""); setNewCustPhone(""); setNewCustIsOneTime(false);
+    setSaleDate(today()); setPaymentMethod("cash");
     setPaymentStatus("paid"); setAmountPaid(""); setNotes("");
+  };
+
+  const selectedCustomer = (customers.data ?? []).find((c: any) => c.id === selectedCustomerId);
+  const customerDisplayName = selectedCustomer?.name ?? "Walk-in customer";
+
+  const filteredCustomers = (customers.data ?? []).filter((c: any) => {
+    if (!customerSearch.trim()) return true;
+    const q = customerSearch.toLowerCase();
+    return c.name.toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q);
+  });
+
+  const handleAddNewCustomer = async () => {
+    if (!newCustName.trim()) return;
+    setAddCustBusy(true);
+    try {
+      const { data, error } = await supabase.from("customers").insert({
+        name: newCustName.trim(),
+        phone: newCustPhone.trim() || null,
+        is_one_time: newCustIsOneTime,
+        is_active: true,
+        balance_brought_forward: 0,
+        empties_brought_forward: 0,
+      }).select().single();
+      if (error) throw error;
+      toast.success("Customer added");
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      queryClient.invalidateQueries({ queryKey: ["customers", true] });
+      setSelectedCustomerId(data.id);
+      setShowAddCustomer(false);
+      setNewCustName(""); setNewCustPhone(""); setNewCustIsOneTime(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add customer");
+    } finally {
+      setAddCustBusy(false);
+    }
+  };
+
+  const handlePaymentMethodChange = (method: string) => {
+    setPaymentMethod(method);
+    if (method === "credit") {
+      setPaymentStatus("owing");
+    }
   };
 
   const submitSale = useSubmit(async () => {
@@ -130,7 +188,8 @@ function SalesPage() {
     const items = cart.map((ci) => ({ product_id: ci.product_id, quantity: ci.quantity, unit_price: ci.unit_price }));
     const { data, error } = await supabase.rpc("record_sale", {
       p_sale_date: saleDate,
-      p_customer_name: customer,
+      p_customer_name: customerDisplayName,
+      p_customer_id: selectedCustomerId || null,
       p_payment_method: paymentMethod as any,
       p_payment_status: paymentStatus as any,
       p_amount_paid: paymentStatus === "paid" ? cartTotal : Number(amountPaid) || 0,
@@ -185,8 +244,122 @@ function SalesPage() {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Customer / reference">
-                        <Input value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Walk-in customer" />
+                      <Field label="Customer">
+                        <div className="space-y-2">
+                          <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={customerSearchOpen}
+                                className="w-full justify-between font-normal"
+                              >
+                                {selectedCustomerId ? (
+                                  <span className="flex items-center gap-2">
+                                    {selectedCustomer?.name ?? "Selected customer"}
+                                    {selectedCustomer?.is_one_time ? <Tag tone="steel">One-time</Tag> : null}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">Walk-in customer — click to select</span>
+                                )}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[400px] p-0" align="start">
+                              <Command shouldFilter={false}>
+                                <CommandInput
+                                  placeholder="Search customer name or phone…"
+                                  value={customerSearch}
+                                  onValueChange={setCustomerSearch}
+                                />
+                                <CommandList>
+                                  <CommandEmpty>
+                                    {customerSearch.trim() ? "No match found." : "No customers yet."}
+                                  </CommandEmpty>
+                                  <CommandGroup>
+                                    <CommandItem
+                                      onSelect={() => { setSelectedCustomerId(""); setCustomerSearchOpen(false); setCustomerSearch(""); }}
+                                      className="gap-2"
+                                    >
+                                      <Check className={cn("h-4 w-4", !selectedCustomerId ? "opacity-100" : "opacity-0")} />
+                                      <div>
+                                        <div className="font-medium">Walk-in customer</div>
+                                        <div className="text-xs text-muted-foreground">No customer record needed</div>
+                                      </div>
+                                    </CommandItem>
+                                    {filteredCustomers.map((c: any) => (
+                                      <CommandItem
+                                        key={c.id}
+                                        onSelect={() => { setSelectedCustomerId(c.id); setCustomerSearchOpen(false); setCustomerSearch(""); }}
+                                        className="gap-2"
+                                      >
+                                        <Check className={cn("h-4 w-4", c.id === selectedCustomerId ? "opacity-100" : "opacity-0")} />
+                                        <div className="flex-1">
+                                          <div className="font-medium">{c.name}</div>
+                                          {c.phone ? <div className="text-xs text-muted-foreground">{c.phone}</div> : null}
+                                        </div>
+                                        {c.is_one_time ? <Tag tone="steel">One-time</Tag> : null}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                  <CommandSeparator />
+                                  <CommandGroup>
+                                    <CommandItem
+                                      onSelect={() => { setCustomerSearchOpen(false); setShowAddCustomer(true); setNewCustName(customerSearch.trim()); }}
+                                      className="gap-2"
+                                    >
+                                      <UserPlus className="h-4 w-4" />
+                                      <span>Add new customer{customerSearch.trim() ? ` "${customerSearch.trim()}"` : ""}</span>
+                                    </CommandItem>
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+
+                          {showAddCustomer ? (
+                            <div className="rounded-md border border-rule p-3 space-y-3">
+                              <div className="text-sm font-medium">Add new customer</div>
+                              <Input
+                                value={newCustName}
+                                onChange={(e) => setNewCustName(e.target.value)}
+                                placeholder="Customer name"
+                              />
+                              <Input
+                                value={newCustPhone}
+                                onChange={(e) => setNewCustPhone(e.target.value)}
+                                placeholder="Phone (optional)"
+                              />
+                              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <input
+                                  type="checkbox"
+                                  checked={newCustIsOneTime}
+                                  onChange={(e) => setNewCustIsOneTime(e.target.checked)}
+                                  className="h-4 w-4 rounded border-rule"
+                                />
+                                One-time / walk-in customer
+                              </label>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={!newCustName.trim() || addCustBusy}
+                                  onClick={handleAddNewCustomer}
+                                >
+                                  {addCustBusy ? "Adding…" : "Add customer"}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => { setShowAddCustomer(false); setNewCustName(""); setNewCustPhone(""); setNewCustIsOneTime(false); }}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
                       </Field>
                       <Field label="Sale date">
                         <Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} />
@@ -259,7 +432,7 @@ function SalesPage() {
 
                     <div className="grid gap-3 sm:grid-cols-3">
                       <Field label="Payment method">
-                        <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                        <Select value={paymentMethod} onValueChange={handlePaymentMethodChange}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="cash">Cash</SelectItem>
@@ -269,7 +442,7 @@ function SalesPage() {
                         </Select>
                       </Field>
                       <Field label="Payment status">
-                        <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                        <Select value={paymentStatus} onValueChange={setPaymentStatus} disabled={paymentMethod === "credit"}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="paid">Paid in full</SelectItem>
