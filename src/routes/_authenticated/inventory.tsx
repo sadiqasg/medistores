@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Search, PackagePlus, ArrowDownUp } from "lucide-react";
+import { Plus, Search, PackagePlus, ArrowDownUp, Pencil, Box } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useMe } from "@/hooks/useMe";
+import { useMe, useSettings } from "@/hooks/useMe";
 import { useProducts, useTransactions, useCustomers, useAllCustomerTransactions } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag, StatCard } from "@/components/ledger";
 import { Package, PackageCheck } from "lucide-react";
@@ -43,9 +43,12 @@ const TXN_TYPE_LABELS: Record<string, string> = {
 function InventoryPage() {
   const me = useMe();
   const role = me.data?.role;
+  const settings = useSettings();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"stock" | "crates" | "history">("stock");
+
+  const productCategories = (settings.data?.categories ?? ["Coca-Cola","Fanta","Sprite","Water","Energy","Other"]) as string[];
 
   const products = useProducts();
   const transactions = useTransactions();
@@ -92,6 +95,86 @@ function InventoryPage() {
   const [txnUnitCost, setTxnUnitCost] = useState("");
   const [txnSupplier, setTxnSupplier] = useState("");
   const [txnReason, setTxnReason] = useState("");
+
+  // Product add/edit dialog
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [pName, setPName] = useState("");
+  const [pSku, setPSku] = useState("");
+  const [pCategory, setPCategory] = useState("");
+  const [pUnitType, setPUnitType] = useState("crate");
+  const [pCostPrice, setPCostPrice] = useState("");
+  const [pSellingPrice, setPSellingPrice] = useState("");
+  const [pReorder, setPReorder] = useState("");
+  const [pOpeningStock, setPOpeningStock] = useState("");
+
+  const resetProductForm = () => {
+    setEditingProduct(null);
+    setPName(""); setPSku(""); setPCategory(""); setPUnitType("crate");
+    setPCostPrice(""); setPSellingPrice(""); setPReorder(""); setPOpeningStock("");
+  };
+
+  const openAddProduct = () => {
+    resetProductForm();
+    setProductDialogOpen(true);
+  };
+
+  const openEditProduct = (p: any) => {
+    setEditingProduct(p);
+    setPName(p.name ?? "");
+    setPSku(p.sku ?? "");
+    setPCategory(p.category ?? "");
+    setPUnitType(p.unit_type ?? "crate");
+    setPCostPrice(String(p.cost_price ?? ""));
+    setPSellingPrice(String(p.selling_price ?? ""));
+    setPReorder(String(p.reorder_threshold ?? ""));
+    setPOpeningStock("");
+    setProductDialogOpen(true);
+  };
+
+  const submitProduct = useSubmit(async () => {
+    if (!pName.trim()) throw new Error("Product name is required");
+    if (!pCategory) throw new Error("Select a category");
+    const payload: Record<string, unknown> = {
+      name: pName.trim(),
+      sku: pSku.trim() || null,
+      category: pCategory,
+      unit_type: pUnitType,
+      cost_price: pCostPrice ? Number(pCostPrice) : 0,
+      selling_price: pSellingPrice ? Number(pSellingPrice) : 0,
+      reorder_threshold: pReorder ? Number(pReorder) : 0,
+      is_active: true,
+    };
+    if (editingProduct) {
+      const { error } = await supabase.from("products").update(payload).eq("id", editingProduct.id);
+      if (error) throw error;
+      toast.success("Product updated");
+    } else {
+      const { data: newProd, error } = await supabase.from("products").insert(payload).select().single();
+      if (error) throw error;
+      if (pOpeningStock && Number(pOpeningStock) > 0) {
+        await supabase.from("inventory_transactions").insert({
+          product_id: newProd.id,
+          type: "stock_in",
+          quantity: Number(pOpeningStock),
+          unit_cost: pCostPrice ? Number(pCostPrice) : null,
+          reason: "Opening stock",
+        });
+      }
+      toast.success("Product added");
+    }
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["inventory_transactions"] });
+    resetProductForm();
+    setProductDialogOpen(false);
+  });
+
+  const handleToggleActive = async (p: any) => {
+    const { error } = await supabase.from("products").update({ is_active: !p.is_active }).eq("id", p.id);
+    if (error) { toast.error("Failed to update product"); return; }
+    toast.success(p.is_active ? "Product deactivated" : "Product reactivated");
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+  };
 
   const canWrite = role === "admin" || role === "staff";
 
@@ -173,6 +256,9 @@ function InventoryPage() {
           <div className="flex flex-wrap items-center gap-3">
             <ExportButton onClick={handleExport} label="Export" />
             {canWrite ? (
+              <Button variant="outline" onClick={openAddProduct}><Box /> Add product</Button>
+            ) : null}
+            {canWrite ? (
               <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
                 <DialogTrigger asChild>
                   <Button><PackagePlus /> Log stock movement</Button>
@@ -232,6 +318,73 @@ function InventoryPage() {
         }
       />
 
+      {/* Product add/edit dialog */}
+      <Dialog open={productDialogOpen} onOpenChange={(v) => { setProductDialogOpen(v); if (!v) resetProductForm(); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingProduct ? "Edit product" : "Add a product"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={submitProduct.submit} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Product name">
+                <Input value={pName} onChange={(e) => setPName(e.target.value)} required placeholder="e.g. Coca-Cola 50cl" />
+              </Field>
+              <Field label="SKU (optional)">
+                <Input value={pSku} onChange={(e) => setPSku(e.target.value)} placeholder="e.g. COKE-50" />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Category">
+                <Select value={pCategory} onValueChange={setPCategory}>
+                  <SelectTrigger><SelectValue placeholder="Select category…" /></SelectTrigger>
+                  <SelectContent>
+                    {productCategories.map((cat) => (
+                      <SelectItem value={cat} key={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field label="Unit type">
+                <Select value={pUnitType} onValueChange={setPUnitType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="crate">Crate</SelectItem>
+                    <SelectItem value="bottle">Bottle</SelectItem>
+                    <SelectItem value="carton">Carton</SelectItem>
+                    <SelectItem value="sachet">Sachet</SelectItem>
+                    <SelectItem value="unit">Unit</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Cost price">
+                <Input type="number" min={0} step="0.01" value={pCostPrice} onChange={(e) => setPCostPrice(e.target.value)} placeholder="0.00" className="num" />
+              </Field>
+              <Field label="Selling price">
+                <Input type="number" min={0} step="0.01" value={pSellingPrice} onChange={(e) => setPSellingPrice(e.target.value)} placeholder="0.00" className="num" />
+              </Field>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Reorder threshold" hint="Alert when stock drops to this">
+                <Input type="number" min={0} value={pReorder} onChange={(e) => setPReorder(e.target.value)} placeholder="0" className="num" />
+              </Field>
+              {editingProduct ? null : (
+                <Field label="Opening stock" hint="Initial quantity to add">
+                  <Input type="number" min={0} value={pOpeningStock} onChange={(e) => setPOpeningStock(e.target.value)} placeholder="0" className="num" />
+                </Field>
+              )}
+            </div>
+            <FormError message={submitProduct.error} />
+            <div className="flex justify-end pt-2">
+              <AsyncButton busy={submitProduct.busy} onClick={submitProduct.submit}>
+                {editingProduct ? "Save changes" : "Add product"}
+              </AsyncButton>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* KPIs */}
       <div className="grid gap-px bg-rule sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total SKUs" value={formatNumber(totalSkus)} />
@@ -281,7 +434,11 @@ function InventoryPage() {
       {/* Stock levels tab */}
       {tab === "stock" ? (
         <Sheet title={`Stock levels — ${formatNumber(filteredProducts.length)} products`}>
-          {filteredProducts.length === 0 ? (
+          {(products.data ?? []).length === 0 ? (
+            <Empty>
+              No products yet. Click "Add product" to create your first item.
+            </Empty>
+          ) : filteredProducts.length === 0 ? (
             <Empty>No products match your search.</Empty>
           ) : (
             <table className="ledger">
@@ -294,8 +451,10 @@ function InventoryPage() {
                   <th className="col-num">On hand</th>
                   <th className="col-num">Reorder at</th>
                   <th className="col-num">Cost price</th>
+                  <th className="col-num">Selling price</th>
                   <th className="col-num">Stock value</th>
                   <th>Status</th>
+                  {canWrite ? <th></th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -311,14 +470,30 @@ function InventoryPage() {
                       <td className="col-num">{formatNumber(p.quantity_on_hand)}</td>
                       <td className="col-num text-muted-foreground">{formatNumber(p.reorder_threshold)}</td>
                       <td className="col-num"><Money value={Number(p.cost_price ?? 0)} /></td>
+                      <td className="col-num"><Money value={Number(p.selling_price ?? 0)} /></td>
                       <td className="col-num"><Money value={value} /></td>
                       <td>
                         {isLow ? (
                           <Tag tone="warning">Low stock</Tag>
-                        ) : (
+                        ) : p.is_active ? (
                           <Tag tone="positive">In stock</Tag>
+                        ) : (
+                          <Tag tone="steel">Inactive</Tag>
                         )}
                       </td>
+                      {canWrite ? (
+                        <td>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => { e.stopPropagation(); openEditProduct(p); }}
+                            aria-label={`Edit ${p.name}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}
