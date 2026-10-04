@@ -40,12 +40,66 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", callerData.user.id);
 
     const isAdmin = (callerRoles ?? []).some((r) => r.role === "admin");
+
+    const body = await req.json();
+    const action = body.action;
+
+    // Self-service password change — any authenticated user can change their own password
+    if (action === "change_password") {
+      const { current_password, new_password } = body;
+      if (!current_password || !new_password) {
+        return jsonError(400, "current_password and new_password are required");
+      }
+      if (new_password.length < 6) {
+        return jsonError(400, "New password must be at least 6 characters");
+      }
+
+      const { error: verifyErr } = await callerClient.auth.signInWithPassword({
+        email: callerData.user.email!,
+        password: current_password,
+      });
+      if (verifyErr) {
+        return jsonError(400, "Current password is incorrect");
+      }
+
+      const { error: updateErr } = await adminClient.auth.admin.updateUserById(
+        callerData.user.id,
+        { password: new_password },
+      );
+      if (updateErr) {
+        return jsonError(500, updateErr.message);
+      }
+
+      return jsonResponse(200, { changed: true });
+    }
+
+    // All remaining actions require admin
     if (!isAdmin) {
       return jsonError(403, "Only admins can manage users");
     }
 
-    const body = await req.json();
-    const action = body.action;
+    if (action === "admin_reset_password") {
+      const { user_id, new_password } = body;
+      if (!user_id || !new_password) {
+        return jsonError(400, "user_id and new_password are required");
+      }
+      if (new_password.length < 6) {
+        return jsonError(400, "New password must be at least 6 characters");
+      }
+      if (user_id === callerData.user.id) {
+        return jsonError(400, "Use the password change option for your own account");
+      }
+
+      const { error: updateErr } = await adminClient.auth.admin.updateUserById(
+        user_id,
+        { password: new_password },
+      );
+      if (updateErr) {
+        return jsonError(500, updateErr.message);
+      }
+
+      return jsonResponse(200, { reset: true, user_id });
+    }
 
     if (action === "create") {
       const { email, password, full_name, role } = body;

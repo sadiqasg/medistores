@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ShieldCheck, UserCog, Eye, Loader2 } from "lucide-react";
+import { Plus, Trash2, ShieldCheck, UserCog, Eye, EyeOff, Loader2, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useSettings } from "@/hooks/useMe";
 import { PageHeader, Sheet, Empty, Tag } from "@/components/ledger";
@@ -62,13 +62,13 @@ const CURRENCIES = [
 function SettingsPage() {
   const me = useMe();
   const isAdmin = me.data?.role === "admin";
-  const [tab, setTab] = useState<"business" | "team">("business");
+  const [tab, setTab] = useState<"business" | "team" | "account">("business");
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Settings"
-        description="Manage your business profile and team members"
+        description="Manage your business profile, team members and account"
       />
 
       <div className="flex items-center gap-1 border-b border-rule">
@@ -84,10 +84,17 @@ function SettingsPage() {
         >
           Team members
         </button>
+        <button
+          onClick={() => setTab("account")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-200 ease-in-out ${tab === "account" ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+        >
+          My account
+        </button>
       </div>
 
       {tab === "business" ? <BusinessProfile isAdmin={isAdmin} /> : null}
       {tab === "team" ? <TeamMembers isAdmin={isAdmin} /> : null}
+      {tab === "account" ? <MyAccount /> : null}
     </div>
   );
 }
@@ -199,6 +206,125 @@ function BusinessProfile({ isAdmin }: { isAdmin: boolean }) {
   );
 }
 
+function MyAccount() {
+  const me = useMe();
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+
+  const changePassword = useSubmit(async () => {
+    if (!currentPassword || !newPassword) throw new Error("Fill in your current and new password");
+    if (newPassword.length < 6) throw new Error("New password must be at least 6 characters");
+    if (newPassword !== confirmPassword) throw new Error("New passwords do not match");
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Not authenticated");
+    const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-users`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ action: "change_password", current_password: currentPassword, new_password: newPassword }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error ?? "Failed to change password");
+    }
+    toast.success("Password changed successfully");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  });
+
+  const profile = me.data?.profile;
+  const email = me.data?.user?.email ?? "";
+  const fullName = profile?.full_name ?? "";
+
+  return (
+    <div className="space-y-6">
+      <Sheet title="Account details">
+        <div className="space-y-3 px-4 py-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <div className="stat-label">Name</div>
+              <div className="mt-1 text-sm font-medium">{fullName || "—"}</div>
+            </div>
+            <div>
+              <div className="stat-label">Email</div>
+              <div className="mt-1 text-sm font-medium">{email}</div>
+            </div>
+          </div>
+        </div>
+      </Sheet>
+
+      <Sheet title="Change password" description="Update your login password">
+        <form onSubmit={changePassword.submit} className="space-y-4 px-4 py-4">
+          <Field label="Current password">
+            <div className="relative">
+              <Input
+                type={showCurrent ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrent((v) => !v)}
+                className="absolute right-3 top-2.5 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                aria-label={showCurrent ? "Hide password" : "Show password"}
+              >
+                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="New password" hint="At least 6 characters">
+              <div className="relative">
+                <Input
+                  type={showNew ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNew((v) => !v)}
+                  className="absolute right-3 top-2.5 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                  aria-label={showNew ? "Hide password" : "Show password"}
+                >
+                  {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </Field>
+            <Field label="Confirm new password">
+              <Input
+                type={showNew ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+              />
+            </Field>
+          </div>
+          <FormError message={changePassword.error} />
+          <div className="flex justify-end">
+            <AsyncButton busy={changePassword.busy} onClick={changePassword.submit}>
+              <KeyRound className="h-4 w-4" /> Change password
+            </AsyncButton>
+          </div>
+        </form>
+      </Sheet>
+    </div>
+  );
+}
+
 function TeamMembers({ isAdmin }: { isAdmin: boolean }) {
   const queryClient = useQueryClient();
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -245,6 +371,9 @@ function TeamMembers({ isAdmin }: { isAdmin: boolean }) {
   const [editingRole, setEditingRole] = useState<string | null>(null);
   const [newRole, setNewRole] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
+  const [resetTarget, setResetTarget] = useState<TeamMember | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [showResetPw, setShowResetPw] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -308,6 +437,26 @@ function TeamMembers({ isAdmin }: { isAdmin: boolean }) {
       queryClient.invalidateQueries({ queryKey: ["me"] });
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to remove user");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAdminReset = async () => {
+    if (!resetTarget) return;
+    if (!resetPassword || resetPassword.length < 6) {
+      setActionError("New password must be at least 6 characters");
+      return;
+    }
+    setBusy(true); setActionError(null);
+    try {
+      await callApi({ action: "admin_reset_password", user_id: resetTarget.id, new_password: resetPassword });
+      toast.success(`Password reset for ${resetTarget.email}`);
+      setResetTarget(null);
+      setResetPassword("");
+      setShowResetPw(false);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to reset password");
     } finally {
       setBusy(false);
     }
@@ -416,15 +565,26 @@ function TeamMembers({ isAdmin }: { isAdmin: boolean }) {
                     <td className="text-muted-foreground">{formatDate(m.created_at)}</td>
                     <td>
                       {isAdmin && !isSelf ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-primary"
-                          onClick={() => setDeleteTarget(m)}
-                          aria-label={`Remove ${m.email}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                            onClick={() => { setResetTarget(m); setResetPassword(""); setShowResetPw(false); setActionError(null); }}
+                            aria-label={`Reset password for ${m.email}`}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-primary"
+                            onClick={() => setDeleteTarget(m)}
+                            aria-label={`Remove ${m.email}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       ) : null}
                     </td>
                   </tr>
@@ -471,6 +631,44 @@ function TeamMembers({ isAdmin }: { isAdmin: boolean }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={Boolean(resetTarget)} onOpenChange={(v) => { if (!v) { setResetTarget(null); setResetPassword(""); setShowResetPw(false); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset password — {resetTarget?.email}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Set a new password for this team member. They can use it to sign in immediately, and can change it later from their own account settings.
+            </p>
+            <Field label="New password" hint="At least 6 characters">
+              <div className="relative">
+                <Input
+                  type={showResetPw ? "text" : "password"}
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pr-10"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowResetPw((v) => !v)}
+                  className="absolute right-3 top-2.5 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                  aria-label={showResetPw ? "Hide password" : "Show password"}
+                >
+                  {showResetPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </Field>
+            <FormError message={actionError} />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setResetTarget(null); setResetPassword(""); }}>Cancel</Button>
+              <AsyncButton busy={busy} onClick={handleAdminReset}>Reset password</AsyncButton>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
