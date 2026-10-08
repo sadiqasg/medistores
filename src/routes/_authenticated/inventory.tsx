@@ -8,7 +8,7 @@ import { useMe, useSettings } from "@/hooks/useMe";
 import { useProducts, useTransactions, useCustomers, useAllCustomerTransactions } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag, StatCard } from "@/components/ledger";
 import { Package, PackageCheck } from "lucide-react";
-import { Field, FormError, AsyncButton, useSubmit, today, exportCsv, ExportButton } from "@/components/medina/shared";
+import { Field, FormError, AsyncButton, useSubmit, today, exportCsv, ExportButton, AmountField, AmountInput } from "@/components/medina/shared";
 import { formatDate, formatNumber } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ function InventoryPage() {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<"stock" | "crates" | "history">("stock");
 
-  const productCategories = (settings.data?.categories ?? ["Coca-Cola","Fanta","Sprite","Water","Energy","Other"]) as string[];
+  const productCategories = (settings.data?.categories ?? ["Soft Drinks","Water","Energy Drinks","Juices","Dairy","Other"]) as string[];
 
   const products = useProducts();
   const transactions = useTransactions();
@@ -153,13 +153,17 @@ function InventoryPage() {
       const { data: newProd, error } = await supabase.from("products").insert(payload).select().single();
       if (error) throw error;
       if (pOpeningStock && Number(pOpeningStock) > 0) {
-        await supabase.from("inventory_transactions").insert({
+        const { error: invError } = await supabase.from("inventory_transactions").insert({
           product_id: newProd.id,
           type: "stock_in",
           quantity: Number(pOpeningStock),
           unit_cost: pCostPrice ? Number(pCostPrice) : null,
           reason: "Opening stock",
+          created_by: me.data?.user?.id ?? null,
         });
+        if (invError) {
+          toast.error("Product created but opening stock failed: " + invError.message);
+        }
       }
       toast.success("Product added");
     }
@@ -229,6 +233,7 @@ function InventoryPage() {
       unit_cost: txnUnitCost ? Number(txnUnitCost) : null,
       supplier: txnSupplier || null,
       reason: txnReason || null,
+      created_by: me.data?.user?.id ?? null,
     });
     if (error) throw error;
     toast.success("Stock movement recorded");
@@ -292,12 +297,12 @@ function InventoryPage() {
                         </Select>
                       </Field>
                       <Field label="Quantity">
-                        <Input type="number" min={1} value={txnQty} onChange={(e) => setTxnQty(e.target.value)} placeholder="0" className="num" required />
+                        <AmountInput value={txnQty} onChange={setTxnQty} placeholder="0" />
                       </Field>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <Field label="Unit cost (optional)">
-                        <Input type="number" min={0} step="0.01" value={txnUnitCost} onChange={(e) => setTxnUnitCost(e.target.value)} placeholder="0.00" className="num" />
+                        <AmountInput value={txnUnitCost} onChange={setTxnUnitCost} />
                       </Field>
                       <Field label="Supplier (optional)">
                         <Input value={txnSupplier} onChange={(e) => setTxnSupplier(e.target.value)} placeholder="Supplier name" />
@@ -334,9 +339,9 @@ function InventoryPage() {
               </Field>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Category">
+              <Field label="Product line" hint="The brand or product family this belongs to">
                 <Select value={pCategory} onValueChange={setPCategory}>
-                  <SelectTrigger><SelectValue placeholder="Select category…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select product line…" /></SelectTrigger>
                   <SelectContent>
                     {productCategories.map((cat) => (
                       <SelectItem value={cat} key={cat}>{cat}</SelectItem>
@@ -358,20 +363,16 @@ function InventoryPage() {
               </Field>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Cost price">
-                <Input type="number" min={0} step="0.01" value={pCostPrice} onChange={(e) => setPCostPrice(e.target.value)} placeholder="0.00" className="num" />
-              </Field>
-              <Field label="Selling price">
-                <Input type="number" min={0} step="0.01" value={pSellingPrice} onChange={(e) => setPSellingPrice(e.target.value)} placeholder="0.00" className="num" />
-              </Field>
+              <AmountField label="Cost price" value={pCostPrice} onChange={setPCostPrice} />
+              <AmountField label="Selling price" value={pSellingPrice} onChange={setPSellingPrice} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Reorder threshold" hint="Alert when stock drops to this">
-                <Input type="number" min={0} value={pReorder} onChange={(e) => setPReorder(e.target.value)} placeholder="0" className="num" />
+                <AmountInput value={pReorder} onChange={setPReorder} placeholder="0" />
               </Field>
               {editingProduct ? null : (
                 <Field label="Opening stock" hint="Initial quantity to add">
-                  <Input type="number" min={0} value={pOpeningStock} onChange={(e) => setPOpeningStock(e.target.value)} placeholder="0" className="num" />
+                  <AmountInput value={pOpeningStock} onChange={setPOpeningStock} placeholder="0" />
                 </Field>
               )}
             </div>
@@ -446,7 +447,7 @@ function InventoryPage() {
                 <tr>
                   <th>Product</th>
                   <th>SKU</th>
-                  <th>Category</th>
+                  <th>Product line</th>
                   <th>Unit type</th>
                   <th className="col-num">On hand</th>
                   <th className="col-num">Reorder at</th>

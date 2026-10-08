@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe, useSettings } from "@/hooks/useMe";
 import { useExpenses } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag, StatCard } from "@/components/ledger";
-import { PeriodFilter, Field, FormError, AsyncButton, useSubmit, today, exportCsv, ExportButton } from "@/components/medina/shared";
+import { PeriodFilter, Field, FormError, AsyncButton, useSubmit, today, exportCsv, ExportButton, AmountField } from "@/components/medina/shared";
 import { buildPeriod, type Period } from "@/lib/period";
 import { formatDate, formatNumber } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -141,9 +141,7 @@ function ExpensesPage() {
                         </Select>
                       </Field>
                     </div>
-                    <Field label="Amount">
-                      <Input type="number" min={0} step="0.01" value={expAmount} onChange={(e) => setExpAmount(e.target.value)} placeholder="0.00" className="num" required />
-                    </Field>
+                    <AmountField label="Amount" value={expAmount} onChange={setExpAmount} />
                     <Field label="Description (optional)">
                       <Textarea value={expDesc} onChange={(e) => setExpDesc(e.target.value)} rows={2} placeholder="e.g. Monthly warehouse rent, fuel for delivery truck…" />
                     </Field>

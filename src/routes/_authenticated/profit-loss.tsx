@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronRight } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
+import { useCurrency } from "@/hooks/useMe";
 import { useSales, useExpenses, useRebates } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag } from "@/components/ledger";
 import { PeriodFilter, exportCsv, ExportButton } from "@/components/medina/shared";
@@ -35,6 +36,7 @@ function ProfitLossPage() {
   const role = me.data?.role;
   const [period, setPeriod] = useState<Period>(() => buildPeriod("month"));
 
+  const currency = useCurrency();
   const sales = useSales(period.from, period.to);
   const expenses = useExpenses(period.from, period.to);
   const rebates = useRebates(period.from, period.to);
@@ -250,7 +252,7 @@ function ProfitLossPage() {
                         calc.netProfit >= 0 ? "text-positive" : "text-primary",
                       )}
                     >
-                      {formatMoneySigned(calc.netProfit)}
+                      {formatMoneySigned(calc.netProfit, currency)}
                     </span>
                   </td>
                 </tr>
@@ -330,9 +332,10 @@ function ProfitLossPage() {
   );
 }
 
-function formatMoneySigned(value: number): string {
+function formatMoneySigned(value: number, currency: { code: string; symbol: string } = { code: "NGN", symbol: "₦" }): string {
+  if (!isFinite(value)) return `${currency.symbol}0.00`;
   const abs = Math.abs(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${value < 0 ? "-" : ""}₦${abs}`;
+  return `${value < 0 ? "-" : ""}${currency.symbol}${abs}`;
 }
 
 function HeadlineCard({
@@ -348,6 +351,7 @@ function HeadlineCard({
   icon: "up" | "down";
   emphasize?: boolean;
 }) {
+  const currency = useCurrency();
   const Icon = icon === "up" ? TrendingUp : TrendingDown;
   const deltaPositive = delta >= 0;
   return (
@@ -373,7 +377,7 @@ function HeadlineCard({
           emphasize && value > 0 && "text-positive",
         )}
       >
-        {formatMoneySigned(value)}
+        {formatMoneySigned(value, currency)}
       </div>
       <div className="mt-1 flex items-center gap-1.5">
         {delta !== 0 ? (
@@ -384,7 +388,7 @@ function HeadlineCard({
                 deltaPositive ? "text-positive" : "text-primary",
               )}
             >
-              {deltaPositive ? "+" : ""}{formatMoneySigned(delta).replace(/^-/, "")}
+              {deltaPositive ? "+" : ""}{formatMoneySigned(delta, currency).replace(/^-/, "")}
             </span>
             <span className="text-xs text-muted-foreground">vs last period</span>
           </>
@@ -421,6 +425,7 @@ function SectionHeader({
 }
 
 function PnlRow({ row }: { row: SectionRow }) {
+  const currency = useCurrency();
   const isSubtotal = row.kind === "subtotal";
   const isTotal = row.kind === "total";
   return (
@@ -451,7 +456,7 @@ function PnlRow({ row }: { row: SectionRow }) {
             isTotal && "font-semibold text-base",
           )}
         >
-          {formatMoneySigned(row.amount)}
+          {formatMoneySigned(row.amount, currency)}
         </span>
       </td>
     </tr>

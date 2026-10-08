@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildPeriod, type Period, type PeriodKey } from "@/lib/period";
+import { useCurrency } from "@/hooks/useMe";
 
 export const today = () => new Date().toISOString().slice(0, 10);
 
@@ -52,4 +53,62 @@ export function useSubmit(action: () => Promise<void>, onDone?: () => void) {
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const submit = async (event?: FormEvent) => { event?.preventDefault(); setBusy(true); setError(null); try { await action(); onDone?.(); } catch (err) { setError(err instanceof Error ? err.message : "Something went wrong"); } finally { setBusy(false); } };
   return { busy, error, submit };
+}
+
+export function AmountField({
+  label,
+  value,
+  onChange,
+  hint,
+  placeholder = "0.00",
+}: {
+  label: string;
+  value: string;
+  onChange: (raw: string) => void;
+  hint?: string;
+  placeholder?: string;
+}) {
+  const currency = useCurrency();
+  return (
+    <Field label={`${label} (${currency.code})`} hint={hint}>
+      <AmountInput value={value} onChange={onChange} placeholder={placeholder} />
+    </Field>
+  );
+}
+
+export function parseFormattedNumber(value: string): number {
+  return Number(value.replace(/,/g, "")) || 0;
+}
+
+export function formatInputAmount(value: string): string {
+  const n = parseFormattedNumber(value);
+  if (!n) return "";
+  return n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+export function AmountInput({
+  value,
+  onChange,
+  placeholder = "0.00",
+  ...props
+}: {
+  value: string;
+  onChange: (raw: string) => void;
+  placeholder?: string;
+} & Omit<React.ComponentProps<typeof Input>, "value" | "onChange">) {
+  const display = value ? formatInputAmount(value) : "";
+  return (
+    <Input
+      type="text"
+      inputMode="decimal"
+      value={display}
+      onChange={(e) => {
+        const raw = e.target.value.replace(/[^0-9.]/g, "");
+        onChange(raw);
+      }}
+      placeholder={placeholder}
+      className="num"
+      {...props}
+    />
+  );
 }

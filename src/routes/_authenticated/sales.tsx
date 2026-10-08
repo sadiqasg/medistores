@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
 import { useSales, useProducts, useCustomers } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag } from "@/components/ledger";
-import { PeriodFilter, Field, FormError, AsyncButton, useSubmit, today } from "@/components/medina/shared";
+import { PeriodFilter, Field, FormError, AsyncButton, useSubmit, today, AmountField } from "@/components/medina/shared";
 import { buildPeriod, type Period } from "@/lib/period";
 import { formatDate, formatNumber } from "@/lib/money";
 import { Button } from "@/components/ui/button";
@@ -452,9 +452,7 @@ function SalesPage() {
                         </Select>
                       </Field>
                       {paymentStatus !== "paid" ? (
-                        <Field label="Amount paid">
-                          <Input type="number" min={0} step="0.01" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="0.00" className="num" />
-                        </Field>
+                        <AmountField label="Amount paid" value={amountPaid} onChange={setAmountPaid} />
                       ) : null}
                     </div>
 
