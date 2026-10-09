@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TrendingUp, TrendingDown, Wallet, Banknote } from "lucide-react";
-import { useMe } from "@/hooks/useMe";
+import { useMe, useSettings } from "@/hooks/useMe";
 import { useSales, useExpenses, useRebates, useDistributions } from "@/hooks/useMedinaData";
 import { PageHeader, Sheet, Empty, Money, Tag, StatCard } from "@/components/ledger";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/money";
@@ -37,6 +37,7 @@ function FinancialsPage() {
   const allExpenses = useExpenses();
   const allRebates = useRebates();
   const allDistributions = useDistributions();
+  const settings = useSettings();
 
   if (!canView) {
     return (
@@ -67,6 +68,7 @@ function FinancialsPage() {
           expenses={allExpenses.data}
           rebates={allRebates.data}
           distributions={allDistributions.data}
+          settings={settings.data}
         />
       )}
       {tab === "pnl" && (
@@ -101,8 +103,10 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 // ---------------------------------------------------------------------------
 // 1. Balance Sheet
 // ---------------------------------------------------------------------------
-function BalanceSheet({ sales, expenses, rebates, distributions }: any) {
+function BalanceSheet({ sales, expenses, rebates, distributions, settings }: any) {
   const currency = useCurrency();
+  const openingCashAtHand = Number(settings?.opening_cash_at_hand ?? 0);
+  const openingCashInBank = Number(settings?.opening_cash_in_bank ?? 0);
 
   const calc = useMemo(() => {
     const saleRows = (sales ?? []).filter((s: any) => !s.is_voided);
@@ -126,13 +130,13 @@ function BalanceSheet({ sales, expenses, rebates, distributions }: any) {
     const totalCashOutflow = totalExpenses + totalDisbursed;
     const netCashPosition = totalCashInflow - totalCashOutflow;
 
-    // Split: 60% cash at hand, 40% cash in bank (heuristic since we don't track bank vs hand)
-    const cashAtHand = netCashPosition * 0.6;
-    const cashInBank = netCashPosition * 0.4;
+    // Use opening balances from settings + net cash position
+    const cashAtHand = openingCashAtHand + netCashPosition;
+    const cashInBank = openingCashInBank;
 
     const inventoryValue = 0; // placeholder — would come from products table
 
-    const totalAssets = netCashPosition + outstandingReceivables + inventoryValue;
+    const totalAssets = cashAtHand + cashInBank + outstandingReceivables + inventoryValue;
     const totalLiabilities = 0; // no liabilities tracked yet
     const netEquity = totalAssets - totalLiabilities;
 
@@ -143,7 +147,7 @@ function BalanceSheet({ sales, expenses, rebates, distributions }: any) {
       cashAtHand, cashInBank, inventoryValue,
       totalAssets, totalLiabilities, netEquity,
     };
-  }, [sales, expenses, rebates, distributions]);
+  }, [sales, expenses, rebates, distributions, openingCashAtHand, openingCashInBank]);
 
   return (
     <div className="space-y-6">
@@ -246,8 +250,8 @@ function BalanceSheet({ sales, expenses, rebates, distributions }: any) {
               </tr>
             </thead>
             <tbody>
-              <PnlRow label="Cash at hand (60%)" amount={calc.cashAtHand} kind="positive" />
-              <PnlRow label="Cash in bank (40%)" amount={calc.cashInBank} kind="positive" />
+              <PnlRow label="Cash at hand" amount={calc.cashAtHand} kind="positive" />
+              <PnlRow label="Cash in bank" amount={calc.cashInBank} kind="positive" />
               <PnlRow label="Outstanding receivables" amount={calc.outstandingReceivables} kind="neutral" />
               <PnlRow label="Inventory at cost" amount={calc.inventoryValue} kind="neutral" />
               <tr className="border-t-2 border-ink bg-ink/[0.04] transition-colors duration-200 ease-in-out">
@@ -289,8 +293,8 @@ function BalanceSheet({ sales, expenses, rebates, distributions }: any) {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Cash position = (Received sales + Received rebates) - (Expenses + Shareholder payouts). Cash at hand / bank
-        split is a 60/40 heuristic until bank account tracking is configured.
+        Cash position = Opening balances + (Received sales + Received rebates) - (Expenses + Shareholder payouts).
+        Set your opening cash at hand and cash in bank in Settings to get accurate figures.
       </p>
     </div>
   );

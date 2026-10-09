@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Search, Info } from "lucide-react";
+import { Plus, Search, Info, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AmountField } from "@/components/medina/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/hooks/useMe";
@@ -114,12 +116,12 @@ function FamilyLedgerPage() {
 
   const allDistributions: Distribution[] = (distributions.data ?? []) as Distribution[];
 
-  // Total capital pool (sum of all capital_contribution + all reinvestments)
+  // Total capital pool — capital_contribution already includes reinvestments
+  // (the increment_capital_contribution RPC adds to it when a reinvestment is logged)
   const totalReinvestedAllTime = allDistributions
     .filter((d) => d.distribution_type === "reinvestment")
     .reduce((sum, d) => sum + Number(d.amount ?? 0), 0);
-  const totalCapitalBase = shareholders.reduce((sum, s) => sum + s.capital_contribution, 0);
-  const totalCapitalPool = totalCapitalBase + totalReinvestedAllTime;
+  const totalCapitalPool = shareholders.reduce((sum, s) => sum + s.capital_contribution, 0);
 
   // Per-shareholder distribution aggregates
   const distributionByShareholder = useMemo(() => {
@@ -159,7 +161,7 @@ function FamilyLedgerPage() {
     return shareholders.map((s) => {
       const dist = distributionByShareholder.get(s.id) ?? { withdrawn: 0, reinvested: 0, count: 0 };
       const periodDist = periodDistributions.get(s.id) ?? { drawn: 0, reinvested: 0 };
-      const totalCapital = s.capital_contribution + dist.reinvested;
+      const totalCapital = s.capital_contribution;
       const currentCapitalSharePct = totalCapitalPool > 0 ? (totalCapital / totalCapitalPool) * 100 : 0;
       const monthlyShare = (netProfit * s.share_percentage) / 100;
       const remainingAfterDraw = monthlyShare - periodDist.drawn - periodDist.reinvested;
@@ -273,11 +275,11 @@ function FamilyLedgerPage() {
             {canWrite ? (
               <Drawer open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
                 <DrawerTrigger asChild>
-                  <Button><Plus /> Log payout</Button>
+                  <Button><Plus /> Record transaction</Button>
                 </DrawerTrigger>
                 <DrawerContent className="max-w-lg">
                   <DrawerHeader>
-                    <DrawerTitle>Record a shareholder payout</DrawerTitle>
+                    <DrawerTitle>Record a shareholder transaction</DrawerTitle>
                   </DrawerHeader>
                   <form onSubmit={submitDistribution.submit} className="space-y-4 px-4">
                     <Field label="Shareholder">
@@ -307,9 +309,7 @@ function FamilyLedgerPage() {
                       </Field>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Amount">
-                        <Input type="number" min={0} step="0.01" value={distAmount} onChange={(e) => setDistAmount(e.target.value)} placeholder="0.00" className="num" required />
-                      </Field>
+                      <AmountField label="Amount" value={distAmount} onChange={setDistAmount} />
                       <Field label="Reference (optional)">
                         <Input value={distReference} onChange={(e) => setDistReference(e.target.value)} placeholder="Payment ref" />
                       </Field>
@@ -358,6 +358,7 @@ function FamilyLedgerPage() {
 
       {/* Inheritance & Capital Matrix with Monthly Profit Split */}
       <Sheet title="Inheritance matrix & monthly profit split">
+        <TooltipProvider>
         {shareholderRows.length === 0 ? (
           <Empty>No shareholders configured.</Empty>
         ) : (
@@ -366,14 +367,30 @@ function FamilyLedgerPage() {
               <thead>
                 <tr>
                   <th>Shareholder</th>
-                  <th className="col-num">Base %</th>
-                  <th className="col-num">Monthly share</th>
-                  <th className="col-num">Drawn (period)</th>
-                  <th className="col-num">Reinvested (period)</th>
-                  <th className="col-num">Remaining</th>
-                  <th className="col-num">Capital account</th>
-                  <th className="col-num">Capital share %</th>
-                  <th className="col-num">Total drawn (all time)</th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Base %" tip="The fixed inheritance percentage each family member is entitled to from the store's profits." />
+                  </th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Monthly share" tip="Net profit for the selected period multiplied by the member's base percentage." />
+                  </th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Drawn (period)" tip="Cash withdrawals by this shareholder during the selected period." />
+                  </th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Reinvested (period)" tip="Profits reinvested back into the store capital for this shareholder during the selected period." />
+                  </th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Remaining" tip="Monthly share minus drawn minus reinvested. A positive value means undistributed profit is available." />
+                  </th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Capital account" tip="Total capital contributed by this shareholder, including initial contributions and all reinvestments over time." />
+                  </th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Capital share %" tip="This member's capital account as a percentage of the total capital pool. Changes as members contribute or reinvest at different rates." />
+                  </th>
+                  <th className="col-num">
+                    <ThWithTooltip label="Total drawn" tip="All-time cash withdrawals by this shareholder." />
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -448,9 +465,8 @@ function FamilyLedgerPage() {
             </table>
           </div>
         )}
+        </TooltipProvider>
       </Sheet>
-
-      {/* Distribution filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -530,10 +546,28 @@ function FamilyLedgerPage() {
       </Sheet>
 
       <p className="text-xs text-muted-foreground">
-        Monthly share = Net Profit × Base %. Drawn amounts (e.g. MAMA's ₦30k monthly draw, NANA's full share) are
-        deducted directly from the calculated share; the remainder flows into the rolling reinvested capital account
-        balance. Capital share % is dynamic, reflecting each member's total capital account relative to the pool.
+        Monthly share = Net Profit × Base %. Drawn amounts are deducted from the calculated share; the remainder
+        flows into the rolling reinvested capital account. Capital share % is dynamic, reflecting each member's
+        total capital account relative to the pool.
       </p>
+    </div>
+  );
+}
+
+function ThWithTooltip({ label, tip }: { label: string; tip: string }) {
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <span>{label}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+            <HelpCircle className="h-3 w-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          <p className="text-xs">{tip}</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }

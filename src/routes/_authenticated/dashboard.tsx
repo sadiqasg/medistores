@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { toast } from "sonner";
+import { AlertTriangle, X } from "lucide-react";
 import { useMe } from "@/hooks/useMe";
 import { useSales, useExpenses, useProducts, useSaleItems, useDistributions } from "@/hooks/useMedinaData";
 import { PageHeader, StatCard, Sheet, Empty, Money, Delta, Tag } from "@/components/ledger";
@@ -60,7 +62,24 @@ function DashboardPage() {
   );
   const lowStock = (products.data ?? []).filter(
     (p: any) => Number(p.quantity_on_hand ?? 0) <= Number(p.reorder_threshold ?? 0),
-  ).length;
+  );
+  const lowStockCount = lowStock.length;
+  const lowStockProducts = lowStock.slice(0, 5);
+
+  // Toast notification when low stock items are first detected
+  const [toastShown, setToastShown] = useState(false);
+  useEffect(() => {
+    if (products.data && lowStockCount > 0 && !toastShown) {
+      const names = lowStockProducts.map((p: any) => p.name).join(", ");
+      toast.warning(`${lowStockCount} product${lowStockCount > 1 ? "s" : ""} running low${names ? ": " + names : ""}`, {
+        duration: 6000,
+      });
+      setToastShown(true);
+    }
+  }, [products.data, lowStockCount, toastShown, lowStockProducts]);
+
+  // Dismissible alert banner state
+  const [alertDismissed, setAlertDismissed] = useState(false);
 
   // Previous period metrics
   const prevRows = (prevSales.data ?? []).filter((s: any) => !s.is_voided);
@@ -110,6 +129,33 @@ function DashboardPage() {
         action={<PeriodFilter period={period} onChange={setPeriod} />}
       />
 
+      {lowStockCount > 0 && !alertDismissed ? (
+        <div className="flex items-start gap-3 border-l-2 border-warning bg-warning/[0.06] px-4 py-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">
+              {lowStockCount} product{lowStockCount > 1 ? "s" : ""} running low
+            </p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {lowStockProducts.map((p: any) => (
+                <Tag key={p.id} tone="warning">{p.name} ({p.quantity_on_hand})</Tag>
+              ))}
+              {lowStockCount > lowStockProducts.length ? (
+                <Tag tone="steel">+{lowStockCount - lowStockProducts.length} more</Tag>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setAlertDismissed(true)}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="Dismiss alert"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
       <div className="grid gap-px bg-rule sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Revenue"
@@ -137,10 +183,10 @@ function DashboardPage() {
 
       <div className="grid gap-px bg-rule sm:grid-cols-2">
         <StatCard label="Inventory value" value={<Money value={stockValue} />} />
-        {lowStock ? (
-          <StatCard label="Low stock items" value={formatNumber(lowStock)} tone="warning" />
+        {lowStockCount ? (
+          <StatCard label="Low stock items" value={formatNumber(lowStockCount)} tone="warning" />
         ) : (
-          <StatCard label="Low stock items" value={formatNumber(lowStock)} />
+          <StatCard label="Low stock items" value={formatNumber(lowStockCount)} />
         )}
       </div>
 

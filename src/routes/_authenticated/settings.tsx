@@ -6,7 +6,7 @@ import { Plus, Trash2, ShieldCheck, UserCog, Eye, EyeOff, Loader2, KeyRound } fr
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useSettings } from "@/hooks/useMe";
 import { PageHeader, Sheet, Empty, Tag } from "@/components/ledger";
-import { Field, FormError, AsyncButton, useSubmit } from "@/components/medina/shared";
+import { Field, FormError, AsyncButton, useSubmit, AmountField } from "@/components/medina/shared";
 import { formatDate } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +108,8 @@ function BusinessProfile({ isAdmin }: { isAdmin: boolean }) {
   const [currencyCode, setCurrencyCode] = useState(data?.currency_code ?? "NGN");
   const [categories, setCategories] = useState((data?.categories ?? []).join(", "));
   const [expenseCats, setExpenseCats] = useState((data?.expense_categories ?? []).join(", "));
+  const [openingCashHand, setOpeningCashHand] = useState(String(data?.opening_cash_at_hand ?? ""));
+  const [openingCashBank, setOpeningCashBank] = useState(String(data?.opening_cash_in_bank ?? ""));
 
   // Sync local state when settings load
   const loadedId = data?.id;
@@ -117,6 +119,8 @@ function BusinessProfile({ isAdmin }: { isAdmin: boolean }) {
     setCurrencyCode(data?.currency_code ?? "NGN");
     setCategories((data?.categories ?? []).join(", "));
     setExpenseCats((data?.expense_categories ?? []).join(", "));
+    setOpeningCashHand(String(data?.opening_cash_at_hand ?? ""));
+    setOpeningCashBank(String(data?.opening_cash_in_bank ?? ""));
     setSyncedId(loadedId);
   }
 
@@ -127,6 +131,8 @@ function BusinessProfile({ isAdmin }: { isAdmin: boolean }) {
       currency_symbol: CURRENCIES.find((c) => c.code === currencyCode)?.symbol ?? "₦",
       categories: categories.split(",").map((s) => s.trim()).filter(Boolean),
       expense_categories: expenseCats.split(",").map((s) => s.trim()).filter(Boolean),
+      opening_cash_at_hand: Number(openingCashHand) || 0,
+      opening_cash_in_bank: Number(openingCashBank) || 0,
     };
     const { error } = await supabase.from("business_settings").update(payload).eq("id", data!.id);
     if (error) throw error;
@@ -192,6 +198,13 @@ function BusinessProfile({ isAdmin }: { isAdmin: boolean }) {
               <Tag key={i} tone="steel">{cat}</Tag>
             ))}
           </div>
+        </div>
+      </Sheet>
+
+      <Sheet title="Opening cash balances" description="Starting cash amounts used in the balance sheet">
+        <div className="grid gap-4 px-4 py-4 sm:grid-cols-2">
+          <AmountField label="Cash at hand" value={openingCashHand} onChange={setOpeningCashHand} hint="Physical cash in the store" />
+          <AmountField label="Cash in bank" value={openingCashBank} onChange={setOpeningCashBank} hint="Cash in the business bank account" />
         </div>
       </Sheet>
 
