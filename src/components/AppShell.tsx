@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Menu, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, useSettings } from "@/hooks/useMe";
+import { useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -68,6 +69,20 @@ const VIEWER_NAV: NavGroup[] = [
     ],
   },
 ];
+
+export function AppLoadingBar() {
+  const routerState = useRouterState();
+  const isLoading = routerState.status === "pending";
+  return (
+    <div
+      className={cn(
+        "fixed left-0 top-0 z-[100] h-0.5 bg-primary transition-opacity duration-300",
+        isLoading ? "opacity-100" : "opacity-0",
+      )}
+      style={{ width: isLoading ? "100%" : "0%", transition: isLoading ? "width 0.4s ease-out" : "none" }}
+    />
+  );
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { data: me } = useMe();

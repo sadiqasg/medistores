@@ -88,6 +88,7 @@
 
   html {
     font-family: var(--font-sans);
+    overscroll-behavior: none;
   }
 
   body {
@@ -95,6 +96,7 @@
     color: var(--foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
   }
 
   h1,
@@ -176,4 +178,31 @@ button, input, select, textarea { letter-spacing: 0; }
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted-foreground);
+}
+
+/* Page transition: content fades + slides in on route change */
+@utility page-enter {
+  animation: page-enter 0.28s ease-out;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* App loading spinner */
+@utility app-loading {
+  animation: app-loading-spin 0.8s linear infinite;
+}
+
+@keyframes app-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
